@@ -171,6 +171,8 @@ ALTER TABLE stock_movement ADD COLUMN correlation_id CHAR(36) NULL; -- nt UUID s
 
 ALTER TABLE stock_movement ADD COLUMN performed_by BIGINT NULL;     -- kes tegi liikumise (app_user.id)
 
+ALTER TABLE category ADD COLUMN parent_id BIGINT NULL;
+
 ALTER TABLE stock_movement
     ADD CONSTRAINT fk_stock_movement_location
         FOREIGN KEY (location_id) REFERENCES location(id)
@@ -181,8 +183,17 @@ ALTER TABLE stock_movement
         FOREIGN KEY (performed_by) REFERENCES app_user(id)
         ON DELETE SET NULL ON UPDATE RESTRICT;
 
+ALTER TABLE category
+    ADD CONSTRAINT fk_category_parent
+        FOREIGN KEY (parent_id) REFERENCES category(id)
+            ON DELETE SET NULL ON UPDATE RESTRICT;
+
 CREATE INDEX ix_stock_movement_location ON stock_movement (location_id);
 CREATE INDEX ix_stock_movement_performed_by ON stock_movement (performed_by);
+CREATE INDEX ix_category_parent ON category(parent_id);
+
+ALTER TABLE category ADD COLUMN is_active BOOLEAN DEFAULT TRUE NOT NULL;
+CREATE INDEX ix_category_is_active ON category(is_active);
 
 -- Reason_detail lubatud väärtused (hoiab standardi paigas)
 ALTER TABLE stock_movement
