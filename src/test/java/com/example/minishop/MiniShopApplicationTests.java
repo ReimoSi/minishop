@@ -28,8 +28,11 @@ class MiniShopApplicationTests {
         r.add("spring.sql.init.mode", () -> "always");
         r.add("spring.sql.init.schema-locations", () -> "classpath:schema.sql");
         r.add("spring.sql.init.data-locations", () -> "classpath:data.sql");
-        r.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
         r.add("spring.jpa.defer-datasource-initialization", () -> "true");
+        r.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
+        // ühtlane skeem (public) ja ajavöönd
+        r.add("spring.jpa.properties.hibernate.default_schema", () -> "public");
+        r.add("spring.jpa.properties.hibernate.jdbc.time_zone", () -> "UTC");
     }
 
 	@Test
