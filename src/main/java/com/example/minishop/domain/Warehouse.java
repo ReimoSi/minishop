@@ -3,7 +3,9 @@ package com.example.minishop.domain;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 
@@ -13,6 +15,8 @@ import java.time.Instant;
 @Setter
 @Entity
 @Table(name = "warehouse")
+@NoArgsConstructor
+@AllArgsConstructor
 public class Warehouse {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

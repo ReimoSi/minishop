@@ -174,7 +174,7 @@ ALTER TABLE stock_movement
     ADD COLUMN reason_detail VARCHAR(20) NULL;
 
 ALTER TABLE stock_movement
-    ADD COLUMN correlation_id CHAR(36) NULL; -- nt UUID string
+    ADD COLUMN correlation_id VARCHAR(36) NULL; -- nt UUID string
 
 ALTER TABLE stock_movement
     ADD COLUMN performed_by BIGINT NULL; -- kes tegi liikumise (app_user.id)

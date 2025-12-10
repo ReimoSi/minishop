@@ -8,39 +8,32 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.Instant;
 
 @Getter
 @Setter
 @Entity
-@Table(name = "product")
+@Table(name = "category")
 @NoArgsConstructor
 @AllArgsConstructor
-public class Product {
+public class Category {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Long id;
 
-    @Size(max = 40)
+    @Size(max = 50)
     @NotNull
-    @Column(name = "sku", nullable = false, length = 40)
-    private String sku;
+    @Column(name = "code", nullable = false, length = 50)
+    private String code;
 
     @Size(max = 200)
     @NotNull
     @Column(name = "name", nullable = false, length = 200)
     private String name;
-
-    @NotNull
-    @Column(name = "price_cents", nullable = false)
-    private Integer priceCents;
-
-    @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "currency_code", nullable = false, columnDefinition = "varchar(3)")
-    private Currency currencyCode;
 
     @NotNull
     @ColumnDefault("CURRENT_TIMESTAMP")
@@ -51,5 +44,16 @@ public class Product {
     @ColumnDefault("CURRENT_TIMESTAMP")
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
     private Instant updatedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
+    @JoinColumn(name = "parent_id")
+    private Category parent;
+
+    @NotNull
+    @ColumnDefault("true")
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive;
+
 
 }
