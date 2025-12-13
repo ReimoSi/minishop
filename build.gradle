@@ -37,6 +37,14 @@ dependencies {
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:postgresql'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// MapStruct
+	implementation 'org.mapstruct:mapstruct:1.6.2'
+	annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.2'
+	testAnnotationProcessor 'org.mapstruct:mapstruct-processor:1.6.2'
+
+	// Lombok + MapStruct
+	annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
 }
 
 tasks.named('test') {
