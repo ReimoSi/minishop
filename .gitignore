@@ -38,3 +38,10 @@ out/
 
 ### VS Code ###
 .vscode/
+
+# Frontend
+/ui/node_modules/
+/ui/dist/
+/ui/.vite/
+/ui/.env*
+/ui/.eslintcache
