@@ -9,6 +9,7 @@ import com.example.minishop.repo.CurrencyRepository;
 import com.example.minishop.repo.ProductRepository;
 import com.example.minishop.web.mapper.ProductMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -89,4 +90,21 @@ public class ProductService {
         Product saved = productRepo.save(entity);
         return mapper.toDto(saved);
     }
+
+    public void delete(Long id) {
+        if (!productRepo.existsById(id)) {
+            throw new NotFoundException("Product " + id + " not found");
+        }
+        try {
+            productRepo.deleteById(id);
+        } catch (EmptyResultDataAccessException e) {
+                throw new NotFoundException("Product " + id + " not found");
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            // FK RESTRICT (nt stock_movement, stock_level, product_category) – anna selge veateade
+            throw new com.example.minishop.infrastructure.exception.DatabaseConstraintException(
+                    "Product " + id + " is referenced and cannot be deleted"
+            );
+        }
+    }
+
 }

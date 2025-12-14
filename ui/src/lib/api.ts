@@ -14,6 +14,10 @@ export async function apiPost<TReq, TRes>(url: string, body: TReq): Promise<TRes
     return data
 }
 
+export async function apiDelete(url: string): Promise<void> {
+    await api.delete(url)
+}
+
 // >>> EKSPORDI TÜÜP! <<<
 export type ProductDto = {
     id?: number

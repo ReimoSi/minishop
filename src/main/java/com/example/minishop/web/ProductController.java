@@ -69,4 +69,16 @@ public class ProductController {
     public ProductDto update(@PathVariable Long id, @Valid @RequestBody ProductDto dto) {
         return service.update(id, dto);
     }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete product", description = "Deletes a product by id")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Deleted"),
+            @ApiResponse(responseCode = "404", description = "Product not found"),
+            @ApiResponse(responseCode = "409", description = "Product is referenced and cannot be deleted")
+    })
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        service.delete(id);
+        return ResponseEntity.noContent().build();
+    }
 }
