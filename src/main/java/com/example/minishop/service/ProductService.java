@@ -1,5 +1,6 @@
 package com.example.minishop.service;
 
+
 import com.example.minishop.api.ProductDto;
 import com.example.minishop.domain.Product;
 import com.example.minishop.infrastructure.exception.NameConflictException;
@@ -7,26 +8,28 @@ import com.example.minishop.infrastructure.exception.NotFoundException;
 import com.example.minishop.repo.CurrencyRepository;
 import com.example.minishop.repo.ProductRepository;
 import com.example.minishop.web.mapper.ProductMapper;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(Transactional.TxType.REQUIRED)
+@Transactional
 public class ProductService {
+
     private final ProductRepository productRepo;
     private final CurrencyRepository currencyRepo;
     private final ProductMapper mapper;
 
-    @Transactional(Transactional.TxType.SUPPORTS)
+    @Transactional(readOnly = true)
     public List<ProductDto> findAll() {
         return mapper.toDto(productRepo.findAll());
     }
 
-    @Transactional(Transactional.TxType.SUPPORTS)
+    @Transactional(readOnly = true)
     public ProductDto get(Long id) {
         Product p = productRepo.findById(id)
                 .orElseThrow(() -> new NotFoundException("Product " + id + " not found"));
@@ -37,13 +40,23 @@ public class ProductService {
         if (dto.getCurrencyCode() == null) {
             throw new IllegalArgumentException("currencyCode is required");
         }
-        if (!currencyRepo.existsById(dto.getCurrencyCode().toUpperCase())) {
-            throw new IllegalArgumentException("Unknown currency: " + dto.getCurrencyCode());
+        final String normalizedCurrency = dto.getCurrencyCode().trim().toUpperCase(Locale.ROOT);
+        if (!currencyRepo.existsById(normalizedCurrency)) {
+            throw new IllegalArgumentException("Unknown currency: " + normalizedCurrency);
         }
-        if (productRepo.existsBySku(dto.getSku())) {
-            throw new NameConflictException("SKU already exists: " + dto.getSku());
+
+        final String normalizedSku = dto.getSku() == null ? null : dto.getSku().trim();
+        if (normalizedSku == null || normalizedSku.isEmpty()) {
+            throw new IllegalArgumentException("sku is required");
         }
-        Product entity = mapper.toEntity(dto);
+        if (productRepo.existsBySku(normalizedSku)) {
+            throw new NameConflictException("SKU already exists: " + normalizedSku);
+        }
+
+        Product entity = mapper.toEntity(dto);   // id/createdAt/updatedAt ignoreeritakse mapperis
+        entity.setSku(normalizedSku);
+        entity.setCurrencyCode(mapper.toCurrency(normalizedCurrency));
+
         Product saved = productRepo.save(entity);
         return mapper.toDto(saved);
     }
@@ -52,21 +65,26 @@ public class ProductService {
         Product entity = productRepo.findById(id)
                 .orElseThrow(() -> new NotFoundException("Product " + id + " not found"));
 
-        if (!entity.getSku().equals(dto.getSku()) && productRepo.existsBySku(dto.getSku())) {
-            throw new NameConflictException("SKU already exists: " + dto.getSku());
+        final String normalizedSku = dto.getSku() == null ? null : dto.getSku().trim();
+        if (normalizedSku == null || normalizedSku.isEmpty()) {
+            throw new IllegalArgumentException("sku is required");
+        }
+        if (!entity.getSku().equals(normalizedSku) && productRepo.existsBySku(normalizedSku)) {
+            throw new NameConflictException("SKU already exists: " + normalizedSku);
         }
 
-        entity.setSku(dto.getSku());
+        entity.setSku(normalizedSku);
         entity.setName(dto.getName());
         entity.setPriceCents(dto.getPriceCents());
 
         if (dto.getCurrencyCode() == null) {
             throw new IllegalArgumentException("currencyCode is required");
         }
-        if (!currencyRepo.existsById(dto.getCurrencyCode().toUpperCase())) {
-            throw new IllegalArgumentException("Unknown currency: " + dto.getCurrencyCode());
+        final String normalizedCurrency = dto.getCurrencyCode().trim().toUpperCase(Locale.ROOT);
+        if (!currencyRepo.existsById(normalizedCurrency)) {
+            throw new IllegalArgumentException("Unknown currency: " + normalizedCurrency);
         }
-        entity.setCurrencyCode(mapper.toCurrency(dto.getCurrencyCode()));
+        entity.setCurrencyCode(mapper.toCurrency(normalizedCurrency));
 
         Product saved = productRepo.save(entity);
         return mapper.toDto(saved);
