@@ -7,7 +7,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
 
@@ -42,13 +43,11 @@ public class Product {
     @JoinColumn(name = "currency_code", nullable = false, columnDefinition = "varchar(3)")
     private Currency currencyCode;
 
-    @NotNull
-    @ColumnDefault("CURRENT_TIMESTAMP")
+    @CreationTimestamp
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private Instant createdAt;
 
-    @NotNull
-    @ColumnDefault("CURRENT_TIMESTAMP")
+    @UpdateTimestamp
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
     private Instant updatedAt;
 
