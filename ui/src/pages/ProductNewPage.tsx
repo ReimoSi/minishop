@@ -30,7 +30,7 @@ export default function ProductNewPage() {
         try {
             // väike kaitse: priceCents peab olema >= 0 täisarv
             const price = Number.isFinite(form.priceCents) ? Math.trunc(form.priceCents) : 0
-            await apiPost<ProductCreate, ProductDto>('/api/products', { ...form, priceCents: Math.max(0, price) })
+            await apiPost<ProductCreate, ProductDto>('/products', { ...form, priceCents: Math.max(0, price) })
             nav('/products')
         } catch (err: any) {
             setError(err.message ?? 'Save failed')

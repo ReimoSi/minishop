@@ -18,7 +18,18 @@ export async function apiDelete(url: string): Promise<void> {
     await api.delete(url)
 }
 
-// >>> EKSPORDI TÜÜP! <<<
+/** Spring Page<> vastus */
+export type PageResp<T> = {
+    content: T[]
+    totalPages: number
+    totalElements: number
+    number: number
+    size: number
+    first: boolean
+    last: boolean
+}
+
+/** Product DTO */
 export type ProductDto = {
     id?: number
     sku: string

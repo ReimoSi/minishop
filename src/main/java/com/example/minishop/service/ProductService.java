@@ -10,6 +10,8 @@ import com.example.minishop.repo.ProductRepository;
 import com.example.minishop.web.mapper.ProductMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +26,14 @@ public class ProductService {
     private final ProductRepository productRepo;
     private final CurrencyRepository currencyRepo;
     private final ProductMapper mapper;
+
+    @Transactional(readOnly = true)
+    public Page<ProductDto> search(String q, Pageable pageable) {
+        Page<Product> page = (q == null || q.isBlank())
+                ? productRepo.findAll(pageable)
+                : productRepo.findByNameContainingIgnoreCaseOrSkuContainingIgnoreCase(q, q, pageable);
+        return page.map(mapper::toDto);
+    }
 
     @Transactional(readOnly = true)
     public List<ProductDto> findAll() {

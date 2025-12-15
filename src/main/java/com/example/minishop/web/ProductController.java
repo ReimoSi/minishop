@@ -8,6 +8,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,6 +26,19 @@ public class ProductController {
 
     public ProductController(ProductService service) {
         this.service = service;
+    }
+
+    @GetMapping("/page")
+    @Operation(
+            summary = "Search & list (paged)",
+            description = "Pageable + sort. Kasuta query param 'q' (name/sku contains)."
+    )
+    @ApiResponses({ @ApiResponse(responseCode = "200", description = "OK") })
+    public Page<ProductDto> search(
+            @RequestParam(value = "q", required = false) String q,
+            @PageableDefault(size = 20, sort = "id") Pageable pageable
+    ) {
+        return service.search(q, pageable);
     }
 
     @GetMapping
