@@ -1,13 +1,17 @@
 
 package com.example.minishop.web;
 
+
 import com.example.minishop.api.ProductDto;
 import com.example.minishop.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -28,25 +32,38 @@ public class ProductController {
         this.service = service;
     }
 
-    @GetMapping("/page")
+    @GetMapping
     @Operation(
-            summary = "Search & list (paged)",
-            description = "Pageable + sort. Kasuta query param 'q' (name/sku contains)."
+            summary = "Search & list products (paged)",
+            description = """
+            Päring toetab otsingut ja sortimist.
+            Otsing: q — match name või sku (contains, ignore-case).
+            Sort: korduv 'sort' parameeter, nt ?sort=price,desc&sort=name,asc
+            Lubatud võtmed: price, name, sku, created, updated, id.
+            """
     )
-    @ApiResponses({ @ApiResponse(responseCode = "200", description = "OK") })
-    public Page<ProductDto> search(
+    @Parameter(
+            name = "sort",
+            description = "Sorteerimine: 'key,asc|desc'. Võib korduda.",
+            in = ParameterIn.QUERY
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK"),
+            @ApiResponse(responseCode = "400", description = "Vale sort võti või suund")
+    })
+    public Page<ProductDto> searchAndList(
             @RequestParam(value = "q", required = false) String q,
-            @PageableDefault(size = 20, sort = "id") Pageable pageable
+            @ParameterObject @PageableDefault(size = 20) Pageable pageable
     ) {
-        return service.search(q, pageable);
+        Pageable safe = SortUtil.sanitize(pageable); // whitelist + tiebreak id ASC
+        return service.search(q, safe);
     }
 
-    @GetMapping
-    @Operation(summary = "List products", description = "Returns all products")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK")
-    })
-    public List<ProductDto> list() {
+    // VALIKULINE: ainult vajadusel (nt admin UI jaoks). NB! Eraldi tee, et vältida mappingu konflikti.
+    @GetMapping("/all")
+    @Operation(summary = "List all products (NO paging)", description = "ADMIN/use only — võib olla suur.")
+    @ApiResponses({ @ApiResponse(responseCode = "200", description = "OK") })
+    public List<ProductDto> listAll() {
         return service.findAll();
     }
 
