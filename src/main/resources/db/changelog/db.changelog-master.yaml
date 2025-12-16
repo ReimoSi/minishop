@@ -1,0 +1,5 @@
+databaseChangeLog:
+  - include:
+      file: classpath:/db/changelog/00-extensions.sql
+  - include:
+      file: classpath:/db/changelog/10-product-indexes.sql
