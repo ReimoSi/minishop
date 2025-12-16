@@ -4,11 +4,22 @@ import { apiDelete } from '../lib/api'
 import type { ProductDto } from '../lib/api'
 import { useProducts } from '../hooks/useProducts'
 
+const SORT_OPTIONS = [
+    { v: 'id,asc', label: 'ID ↑' },
+    { v: 'id,desc', label: 'ID ↓' },
+    { v: 'price,asc', label: 'Hind ↑' },
+    { v: 'price,desc', label: 'Hind ↓' },
+    { v: 'name,asc', label: 'Nimi A→Z' },
+    { v: 'name,desc', label: 'Nimi Z→A' },
+    { v: 'sku,asc', label: 'SKU ↑' },
+    { v: 'sku,desc', label: 'SKU ↓' },
+] as const
+
 export default function ProductsPage() {
     const [q, setQ] = useState('')
     const [page, setPage] = useState(0)
     const [size, setSize] = useState(10)
-    const [sort, setSort] = useState<'id,asc' | 'id,desc'>('id,asc')
+    const [sort, setSort] = useState<(typeof SORT_OPTIONS)[number]['v']>('id,asc')
 
     const queryClient = useQueryClient()
     const { data, isLoading, isError, error } = useProducts({ q, page, size, sort })
@@ -19,10 +30,6 @@ export default function ProductsPage() {
             queryClient.invalidateQueries({ queryKey: ['products'] })
         },
     })
-
-    function toggleSort() {
-        setSort((prev) => (prev === 'id,asc' ? 'id,desc' : 'id,asc'))
-    }
 
     const rows: ProductDto[] = useMemo(() => data?.content ?? [], [data])
 
@@ -42,9 +49,20 @@ export default function ProductsPage() {
                         setPage(0)
                     }}
                 />
-                <button onClick={toggleSort}>
-                    Sort by ID {sort === 'id,asc' ? '↑' : '↓'}
-                </button>
+                <label>
+                    Sort:{' '}
+                    <select
+                        value={sort}
+                        onChange={(e) => {
+                            setSort(e.target.value as any)
+                            setPage(0)
+                        }}
+                    >
+                        {SORT_OPTIONS.map((o) => (
+                            <option key={o.v} value={o.v}>{o.label}</option>
+                        ))}
+                    </select>
+                </label>
                 <label>
                     Page size:{' '}
                     <select
