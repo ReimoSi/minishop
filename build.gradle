@@ -9,50 +9,55 @@ version = '0.0.1-SNAPSHOT'
 description = 'MiniShop Inventory (MVP)'
 
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
-	}
+	toolchain { languageVersion = JavaLanguageVersion.of(21) }
+	modularity.inferModulePath = false
 }
+
+repositories { mavenCentral() }
 
 configurations {
-	compileOnly {
-		extendsFrom annotationProcessor
-	}
-}
-
-repositories {
-	mavenCentral()
+	compileOnly { extendsFrom annotationProcessor }
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-	compileOnly 'org.projectlombok:lombok'
-    runtimeOnly 'org.postgresql:postgresql'
-	annotationProcessor 'org.projectlombok:lombok'
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation platform('org.testcontainers:testcontainers-bom:1.20.3')
-    testImplementation 'org.testcontainers:junit-jupiter'
-    testImplementation 'org.testcontainers:postgresql'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8'
+	implementation 'org.liquibase:liquibase-core'
 
-	// MapStruct
+	runtimeOnly 'org.postgresql:postgresql'
+
+	// MapStruct + Lombok
 	implementation 'org.mapstruct:mapstruct:1.6.2'
 	annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.2'
 	testAnnotationProcessor 'org.mapstruct:mapstruct-processor:1.6.2'
-
-	// Lombok + MapStruct
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
 
-	// Swagger
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8'
+	// ✅ Boot test starter – toob JUnit5, Mockito, Spring Test,
+	//   *spring-boot-test* ja *spring-boot-test-autoconfigure*
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 
-	// Liquidbase
-	implementation 'org.liquibase:liquibase-core'
+	// ✅ (Kindlustus) too need ka eksplitsiitselt – välistab varianthälbed Gradle 9 all
+	testImplementation "org.springframework.boot:spring-boot-test:4.0.0"
+	testImplementation "org.springframework.boot:spring-boot-test-autoconfigure:4.0.0"
+
+	// Testcontainers
+	testImplementation platform('org.testcontainers:testcontainers-bom:1.20.3')
+	testImplementation 'org.testcontainers:junit-jupiter'
+	testImplementation 'org.testcontainers:postgresql'
+
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-tasks.named('test') {
-	useJUnitPlatform()
+tasks.named('test') { useJUnitPlatform() }
+
+// (diag) printi testCompileClasspath – PowerShelli jaoks mugav
+tasks.register('printTestCp') {
+	doLast {
+		println '\n=== testCompileClasspath ==='
+		configurations.testCompileClasspath.files.each { println it }
+	}
 }
