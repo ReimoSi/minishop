@@ -1,18 +1,101 @@
 import axios from 'axios'
 
 /** Ühine Axiosi instants – kõik päringud lähevad /api alla (Vite proxy suunab 8080 peale). */
-export const api = axios.create({
-    baseURL: '/api',
-    headers: { 'Content-Type': 'application/json' },
-})
+export const api = axios.create({ baseURL: '/api' })
 
-/** GET helper */
+/** Spring Page<> vastus, mis võib tulla kas top-level meta'ga või page-objektiga. */
+type RawPage<T> =
+    | {
+    content: T[]
+    // variant A (top-level meta)
+    totalElements?: number
+    totalPages?: number
+    number?: number
+    size?: number
+    first?: boolean
+    last?: boolean
+}
+    | {
+    content: T[]
+    // variant B (meta on 'page' all)
+    page: {
+        totalElements: number
+        totalPages: number
+        number: number
+        size: number
+    }
+}
+
+/** Ühtlustatud kuju, mida UI kasutab. */
+export type PageResp<T> = {
+    content: T[]
+    totalElements: number
+    totalPages: number
+    number: number
+    size: number
+    first: boolean
+    last: boolean
+}
+
+/** Peab ühtima backend ProductDto-ga */
+export type ProductDto = {
+    id?: number
+    sku: string
+    name: string
+    priceCents: number
+    currencyCode: string
+}
+
+/** GET helper (toores) */
 export async function apiGet<T>(url: string): Promise<T> {
     const { data } = await api.get<T>(url)
     return data
 }
 
-/** POST helper (tagastab veateate backendist, kui olemas) */
+/** GET helper: normaliseeri Page kuju (top-level vs page:{...}). */
+export async function apiGetPage<T>(url: string): Promise<PageResp<T>> {
+    const raw = await apiGet<RawPage<T>>(url)
+    const content = (raw as any).content ?? []
+
+    // variant: meta on 'page' all
+    if ((raw as any).page) {
+        const p = (raw as any).page
+        const number = p.number ?? 0
+        const size = p.size ?? content.length
+        const totalPages = p.totalPages ?? 1
+        const totalElements = p.totalElements ?? content.length
+        return {
+            content,
+            totalElements,
+            totalPages,
+            number,
+            size,
+            first: number === 0,
+            last: totalPages <= 1 || number >= totalPages - 1,
+        }
+    }
+
+    // top-level meta
+    const number = (raw as any).number ?? 0
+    const size = (raw as any).size ?? content.length
+    const totalPages = (raw as any).totalPages ?? 1
+    const totalElements = (raw as any).totalElements ?? content.length
+    const first = (raw as any).first ?? (number === 0)
+    const last = (raw as any).last ?? (totalPages <= 1 || number >= totalPages - 1)
+
+    return {
+        content,
+        totalElements,
+        totalPages,
+        number,
+        size,
+        first,
+        last,
+    }
+}
+
+
+/** POST helper (viskab backendist message välja) */
 export async function apiPost<TReq, TRes>(url: string, body: TReq): Promise<TRes> {
     try {
         const { data } = await api.post<TRes>(url, body)
@@ -29,7 +112,7 @@ export async function apiPost<TReq, TRes>(url: string, body: TReq): Promise<TRes
     }
 }
 
-/** DELETE helper (sama veateadete loogika) */
+/** DELETE helper */
 export async function apiDelete(url: string): Promise<void> {
     try {
         await api.delete(url)
@@ -42,61 +125,5 @@ export async function apiDelete(url: string): Promise<void> {
             throw new Error(msg)
         }
         throw err
-    }
-}
-
-/** Spring Page<> (flat) kuju, mida UI kasutab */
-export type PageResp<T> = {
-    content: T[]
-    totalElements: number
-    totalPages: number
-    number: number // current page (0-based)
-    size: number
-    first: boolean
-    last: boolean
-}
-
-/** Peab ühtima backend ProductDto-ga */
-export type ProductDto = {
-    id?: number
-    sku: string
-    name: string
-    priceCents: number
-    currencyCode: string
-}
-
-/**
- * Normaliseeri backend vastus UI ootuseks:
- * - toetab Sinu backendi kuju: { content, page{size,number,totalElements,totalPages} }
- * - toetab ka Springi flat kuju (juhuks kui kunagi muutub)
- */
-export function normalizePage<T = unknown>(raw: any): PageResp<T> {
-    // Kuju A: { content, page: { size, number, totalElements, totalPages } }
-    if (raw?.page && typeof raw.page === 'object') {
-        const p = raw.page
-        const number = Number(p.number ?? 0)
-        const totalPages = Number(p.totalPages ?? 0)
-        return {
-            content: (raw.content ?? []) as T[],
-            number,
-            size: Number(p.size ?? 20),
-            totalElements: Number(p.totalElements ?? 0),
-            totalPages,
-            first: number <= 0,
-            last: number >= Math.max(0, totalPages - 1),
-        }
-    }
-    // Kuju B: flat Spring Page<>
-    return {
-        content: (raw?.content ?? []) as T[],
-        number: Number(raw?.number ?? 0),
-        size: Number(raw?.size ?? 20),
-        totalElements: Number(raw?.totalElements ?? 0),
-        totalPages: Number(raw?.totalPages ?? 0),
-        first: Boolean(raw?.first ?? (Number(raw?.number ?? 0) <= 0)),
-        last: Boolean(
-            raw?.last ??
-            (Number(raw?.number ?? 0) >= Math.max(0, Number(raw?.totalPages ?? 0) - 1)),
-        ),
     }
 }

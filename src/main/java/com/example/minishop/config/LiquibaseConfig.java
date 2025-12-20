@@ -7,20 +7,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@ConditionalOnProperty(
-        prefix = "spring.liquibase",
-        name = "enabled",
-        havingValue = "true",
-        matchIfMissing = true
-)
+@ConditionalOnProperty(prefix = "spring.liquibase", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class LiquibaseConfig {
-
     @Bean
     public SpringLiquibase liquibase(DataSource dataSource) {
         SpringLiquibase lb = new SpringLiquibase();
         lb.setDataSource(dataSource);
         lb.setChangeLog("classpath:db/changelog/db.changelog-master.yaml");
-        lb.setContexts("dev,prod");
+        // ÄRA SEA contexts siia; võtame application*.properties failidest
         lb.setShouldRun(true);
         return lb;
     }
