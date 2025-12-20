@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { apiPost } from '../lib/api'
 import type { ProductDto } from '../lib/api'
 import { useNavigate } from 'react-router-dom'
+import { toMinorUnits } from '../lib/money'
 
 type ProductCreateForm = {
     sku: string
     name: string
-    priceCents: string   // hoia stringina, et väli saaks olla ka tühi
+    price: string        // eurodes (näiteks "1.49")
     currencyCode: string
 }
 
@@ -17,7 +18,7 @@ export default function ProductNewPage() {
     const [form, setForm] = useState<ProductCreateForm>({
         sku: '',
         name: '',
-        priceCents: '',     // alusta tühjalt, mitte 0-ga
+        price: '',          // eurodes
         currencyCode: 'EUR',
     })
     const [saving, setSaving] = useState(false)
@@ -31,9 +32,12 @@ export default function ProductNewPage() {
         e.preventDefault()
         setError(null)
 
-        const cents = parseInt(form.priceCents, 10)
-        if (Number.isNaN(cents) || cents < 0) {
-            setError('Price must be a non-negative integer (cents).')
+        let cents: number
+        try {
+            cents = toMinorUnits(form.price, form.currencyCode)
+            if (cents < 0) throw new Error('Price must be non-negative')
+        } catch (err: any) {
+            setError(err?.message || 'Invalid price')
             return
         }
 
@@ -42,7 +46,7 @@ export default function ProductNewPage() {
             const payload = {
                 sku: form.sku.trim(),
                 name: form.name.trim(),
-                priceCents: cents,
+                priceCents: cents,                 // BE ootab sentides
                 currencyCode: form.currencyCode.toUpperCase(),
             }
             await apiPost<typeof payload, ProductDto>('/products', payload)
@@ -77,15 +81,13 @@ export default function ProductNewPage() {
                     required
                 />
 
-                <label htmlFor="price">Price (cents)</label>
+                <label htmlFor="price">Price</label>
                 <input
                     id="price"
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    placeholder="e.g. 149"
-                    value={form.priceCents}
-                    onChange={e => update('priceCents', e.target.value)}
+                    inputMode="decimal"
+                    placeholder="e.g. 1.49"
+                    value={form.price}
+                    onChange={e => update('price', e.target.value)}
                     required
                 />
 
