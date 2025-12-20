@@ -4,31 +4,24 @@ import { apiDelete } from '../lib/api'
 import type { ProductDto } from '../lib/api'
 import { useProducts } from '../hooks/useProducts'
 
-const SORT_OPTIONS = [
-    { v: 'id,asc', label: 'ID ↑' },
-    { v: 'id,desc', label: 'ID ↓' },
-    { v: 'price,asc', label: 'Hind ↑' },
-    { v: 'price,desc', label: 'Hind ↓' },
-    { v: 'name,asc', label: 'Nimi A→Z' },
-    { v: 'name,desc', label: 'Nimi Z→A' },
-    { v: 'sku,asc', label: 'SKU ↑' },
-    { v: 'sku,desc', label: 'SKU ↓' },
-] as const
+type SortKey = 'price' | 'name' | 'sku' | 'updated' | 'created' | 'id'
+type SortDir = 'asc' | 'desc'
 
 export default function ProductsPage() {
     const [q, setQ] = useState('')
     const [page, setPage] = useState(0)
     const [size, setSize] = useState(10)
-    const [sort, setSort] = useState<(typeof SORT_OPTIONS)[number]['v']>('id,asc')
+    const [sortKey, setSortKey] = useState<SortKey>('id')
+    const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+    const sorts = useMemo(() => [`${sortKey},${sortDir}`, 'id,asc'], [sortKey, sortDir])
 
     const queryClient = useQueryClient()
-    const { data, isLoading, isError, error } = useProducts({ q, page, size, sort })
+    const { data, isLoading, isError, error } = useProducts({ q, page, size, sort: sorts })
 
     const delMutation = useMutation({
         mutationFn: (id: number) => apiDelete(`/products/${id}`),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['products'] })
-        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products'] }),
     })
 
     const rows: ProductDto[] = useMemo(() => data?.content ?? [], [data])
@@ -44,37 +37,39 @@ export default function ProductsPage() {
                 <input
                     placeholder="Search…"
                     value={q}
-                    onChange={(e) => {
-                        setQ(e.target.value)
-                        setPage(0)
-                    }}
+                    onChange={(e) => { setQ(e.target.value); setPage(0) }}
                 />
+
                 <label>
-                    Sort:{' '}
+                    Sort:
                     <select
-                        value={sort}
-                        onChange={(e) => {
-                            setSort(e.target.value as any)
-                            setPage(0)
-                        }}
+                        value={sortKey}
+                        onChange={(e) => { setSortKey(e.target.value as SortKey); setPage(0) }}
+                        style={{ marginLeft: 6 }}
                     >
-                        {SORT_OPTIONS.map((o) => (
-                            <option key={o.v} value={o.v}>{o.label}</option>
-                        ))}
+                        <option value="price">price</option>
+                        <option value="name">name</option>
+                        <option value="sku">sku</option>
+                        <option value="updated">updated</option>
+                        <option value="created">created</option>
+                        <option value="id">id</option>
                     </select>
                 </label>
-                <label>
+
+                <button
+                    onClick={() => { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); setPage(0) }}
+                    title="Toggle direction"
+                >
+                    {sortDir === 'asc' ? '↑ asc' : '↓ desc'}
+                </button>
+
+                <label style={{ marginLeft: 8 }}>
                     Page size:{' '}
                     <select
                         value={size}
-                        onChange={(e) => {
-                            setSize(Number(e.target.value))
-                            setPage(0)
-                        }}
+                        onChange={(e) => { setSize(Number(e.target.value)); setPage(0) }}
                     >
-                        {[5, 10, 20, 50].map((n) => (
-                            <option key={n} value={n}>{n}</option>
-                        ))}
+                        {[5,10,20,50].map(n => <option key={n} value={n}>{n}</option>)}
                     </select>
                 </label>
             </div>
@@ -121,22 +116,15 @@ export default function ProductsPage() {
 
             <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
                 <button onClick={() => setPage(0)} disabled={data?.first}>⏮ First</button>
-                <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={data?.first}>◀ Prev</button>
-                <span>
-          Page {(data?.number ?? 0) + 1} / {data?.totalPages ?? 1}
-        </span>
+                <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={data?.first}>◀ Prev</button>
+                <span>Page {(data?.number ?? 0) + 1} / {data?.totalPages ?? 1}</span>
                 <button
-                    onClick={() => setPage((p) => Math.min((data?.totalPages ?? 1) - 1, p + 1))}
+                    onClick={() => setPage(p => Math.min((data?.totalPages ?? 1) - 1, p + 1))}
                     disabled={data?.last}
                 >
                     Next ▶
                 </button>
-                <button
-                    onClick={() => data && setPage(data.totalPages - 1)}
-                    disabled={data?.last}
-                >
-                    Last ⏭
-                </button>
+                <button onClick={() => data && setPage(data.totalPages - 1)} disabled={data?.last}>Last ⏭</button>
             </div>
         </div>
     )
