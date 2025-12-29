@@ -5,7 +5,11 @@ import type { ProductDto } from '../lib/api'
 export function useProduct(id: number | string | undefined) {
     return useQuery({
         queryKey: ['product', id],
-        queryFn: () => apiGet<ProductDto>(`/products/${id}`),
-        enabled: !!id,
+        queryFn: async () => {
+            if (id === undefined || id === null) throw new Error('Missing id')
+            return await apiGet<ProductDto>(`/products/${id}`)
+        },
+        enabled: id !== undefined && id !== null,
     })
 }
+

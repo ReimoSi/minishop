@@ -1,95 +1,178 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useQueryClient, useMutation } from '@tanstack/react-query'
 import { useProduct } from '../hooks/useProduct'
 import { apiPut } from '../lib/api'
 import type { ProductDto } from '../lib/api'
-import { toMinorUnits } from '../lib/money'
 
-type Form = {
+type ProductEditForm = {
     sku: string
     name: string
-    price: string        // eurodes
+    priceCents: string // hoian stringina, et tühjus ja mittetäisarv oleks hallatav
     currencyCode: string
 }
 
-export default function ProductEditPage() {
-    const nav = useNavigate()
-    const { id } = useParams()
-    const { data, isLoading, isError, error } = useProduct(id)
-    const [form, setForm] = useState<Form>({ sku: '', name: '', price: '', currencyCode: 'EUR' })
-    const [saving, setSaving] = useState(false)
-    const [errMsg, setErrMsg] = useState<string | null>(null)
+const CURRENCIES = ['EUR', 'USD', 'GBP'] as const
 
+export default function ProductEditPage() {
+    const { id } = useParams()
+    const pid = Number(id)
+    const nav = useNavigate()
+    const qc = useQueryClient()
+
+    const { data, isLoading, isError, error } = useProduct(pid)
+
+    const [form, setForm] = useState<ProductEditForm>({
+        sku: '',
+        name: '',
+        priceCents: '',
+        currencyCode: 'EUR',
+    })
+    const [saving, setSaving] = useState(false)
+    const [msg, setMsg] = useState<string | null>(null)
+
+    // lae serveri andmed vormi
     useEffect(() => {
         if (data) {
-            const priceEuros = (data.priceCents / 100).toFixed(2)
             setForm({
-                sku: data.sku,
-                name: data.name,
-                price: priceEuros,
-                currencyCode: data.currencyCode,
+                sku: data.sku ?? '',
+                name: data.name ?? '',
+                priceCents: String(data.priceCents ?? ''),
+                currencyCode: data.currencyCode ?? 'EUR',
             })
         }
     }, [data])
 
-    function update<K extends keyof Form>(k: K, v: Form[K]) {
-        setForm(prev => ({ ...prev, [k]: v }))
+    function update<K extends keyof ProductEditForm>(key: K, value: ProductEditForm[K]) {
+        setForm(prev => ({ ...prev, [key]: value }))
     }
+
+    const putMutation = useMutation({
+        mutationFn: (payload: ProductDto) => apiPut<ProductDto, ProductDto>(`/products/${pid}`, payload),
+        onSuccess: () => {
+            // värskenda listi ja selle toote cache
+            qc.invalidateQueries({ queryKey: ['products'] })
+            qc.invalidateQueries({ queryKey: ['product', pid] })
+        },
+    })
 
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault()
-        setErrMsg(null)
+        setMsg(null)
+
+        // lihtne front valida
+        const cents = parseInt(form.priceCents, 10)
+        if (Number.isNaN(cents) || cents < 0) {
+            setMsg('Price must be a non-negative integer (cents).')
+            return
+        }
+        if (!form.sku.trim()) {
+            setMsg('SKU is required.')
+            return
+        }
+        if (!form.name.trim()) {
+            setMsg('Name is required.')
+            return
+        }
+
+        setSaving(true)
         try {
-            const priceCents = toMinorUnits(form.price, form.currencyCode)
             const payload: ProductDto = {
-                sku: form.sku.trim(),
+                id: pid,
+                sku: form.sku.trim().toUpperCase(),
                 name: form.name.trim(),
-                priceCents,
+                priceCents: cents,
                 currencyCode: form.currencyCode.toUpperCase(),
             }
-            setSaving(true)
-            await apiPut<ProductDto, ProductDto>(`/products/${id}`, payload)
+            await putMutation.mutateAsync(payload)
             nav('/products')
         } catch (err: any) {
-            setErrMsg(err?.message ?? 'Update failed')
+            setMsg(err?.message ?? 'Save failed')
         } finally {
             setSaving(false)
         }
     }
 
-    if (isLoading) return <div className="container"><p>Loading…</p></div>
-    if (isError) return <div className="container"><p style={{color:'crimson'}}>Error: {(error as Error)?.message ?? 'unknown'}</p></div>
+    if (isLoading) {
+        return (
+            <div className="container">
+                <div className="page-header">
+                    <button className="btn" onClick={() => nav(-1)} type="button">← Back</button>
+                    <h1 style={{ margin: 0 }}>Edit product #{pid}</h1>
+                    <div />
+                </div>
+                <p>Loading…</p>
+            </div>
+        )
+    }
+
+    if (isError) {
+        // kui backend tagastab 404, näitame sõnumit
+        return (
+            <div className="container">
+                <div className="page-header">
+                    <button className="btn" onClick={() => nav(-1)} type="button">← Back</button>
+                    <h1 style={{ margin: 0 }}>Edit product #{pid}</h1>
+                    <div />
+                </div>
+                <p style={{ color: 'crimson' }}>Error: {(error as Error)?.message ?? 'Failed to load product'}</p>
+            </div>
+        )
+    }
 
     return (
         <div className="container">
             <div className="page-header">
-                <button type="button" className="btn" onClick={() => nav(-1)}>← Back</button>
-                <h1 style={{ margin: 0 }}>Edit product #{id}</h1>
+                <button className="btn" onClick={() => nav(-1)} type="button">← Back</button>
+                <h1 style={{ margin: 0 }}>Edit product #{pid}</h1>
                 <div />
             </div>
 
-            <form onSubmit={onSubmit} style={{ maxWidth: 520 }}>
+            <form onSubmit={onSubmit} className="form-grid">
                 <label htmlFor="sku">SKU</label>
-                <input id="sku" value={form.sku} onChange={e=>update('sku', e.target.value.toUpperCase())} maxLength={40} required />
+                <input
+                    id="sku"
+                    value={form.sku}
+                    onChange={e => update('sku', e.target.value.toUpperCase())}
+                    maxLength={40}
+                    required
+                />
 
                 <label htmlFor="name">Name</label>
-                <input id="name" value={form.name} onChange={e=>update('name', e.target.value)} maxLength={200} required />
+                <input
+                    id="name"
+                    value={form.name}
+                    onChange={e => update('name', e.target.value)}
+                    maxLength={200}
+                    required
+                />
 
-                <label htmlFor="price">Price</label>
-                <input id="price" inputMode="decimal" value={form.price} onChange={e=>update('price', e.target.value)} required />
+                <label htmlFor="priceCents">Price (cents)</label>
+                <input
+                    id="priceCents"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    value={form.priceCents}
+                    onChange={e => update('priceCents', e.target.value)}
+                    required
+                />
 
-                <label htmlFor="curr">Currency</label>
-                <select id="curr" value={form.currencyCode} onChange={e=>update('currencyCode', e.target.value)} required>
-                    <option value="EUR">EUR</option>
-                    <option value="USD">USD</option>
-                    <option value="GBP">GBP</option>
+                <label htmlFor="currency">Currency</label>
+                <select
+                    id="currency"
+                    value={form.currencyCode}
+                    onChange={e => update('currencyCode', e.target.value)}
+                    required
+                >
+                    {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
 
-                {errMsg && <p style={{ color: 'crimson', marginTop: 8 }}>{errMsg}</p>}
+                {msg && <div className="error">{msg}</div>}
 
-                <div className="form-actions">
+                <div className="actions">
                     <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
-                    <button type="button" onClick={() => nav('/products')} disabled={saving}>Cancel</button>
+                    <button type="button" className="btn" onClick={() => nav('/products')} disabled={saving}>Cancel</button>
                 </div>
             </form>
         </div>
