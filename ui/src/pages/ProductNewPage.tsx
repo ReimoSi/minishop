@@ -7,7 +7,7 @@ import { toMinorUnits } from '../lib/money'
 type ProductCreateForm = {
     sku: string
     name: string
-    price: string        // eurodes (näiteks "1.49")
+    price: string        // eurodes (nt "1.49")
     currencyCode: string
 }
 
@@ -18,7 +18,7 @@ export default function ProductNewPage() {
     const [form, setForm] = useState<ProductCreateForm>({
         sku: '',
         name: '',
-        price: '',          // eurodes
+        price: '',
         currencyCode: 'EUR',
     })
     const [saving, setSaving] = useState(false)
@@ -60,7 +60,12 @@ export default function ProductNewPage() {
 
     return (
         <div className="container">
-            <h1>Add product</h1>
+            <div className="page-header">
+                <button type="button" className="btn" onClick={() => nav(-1)}>← Back</button>
+                <h1 style={{ margin: 0 }}>Add product</h1>
+                <div />
+            </div>
+
             <form onSubmit={onSubmit} style={{ maxWidth: 520 }}>
                 <label htmlFor="sku">SKU</label>
                 <input

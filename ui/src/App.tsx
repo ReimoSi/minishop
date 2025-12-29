@@ -7,7 +7,6 @@ export default function App() {
         <BrowserRouter>
             <nav style={{ padding: 12, borderBottom: '1px solid #ddd' }}>
                 <Link to="/products">Products</Link>
-                <Link to="/products/new" style={{ marginLeft: 12 }}>Add</Link>
             </nav>
             <Routes>
                 <Route path="/" element={<Navigate to="/products" replace />} />
@@ -17,3 +16,4 @@ export default function App() {
         </BrowserRouter>
     )
 }
+

@@ -40,3 +40,30 @@ th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; }
   gap: 10px;
   margin-top: 6px;
 }
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 8px 0 12px;
+}
+.toolbar .filters { display: flex; gap: 12px; align-items: center; }
+.btn {
+  display: inline-block;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #f7f7f7;
+  text-decoration: none;
+}
+.btn:hover { background: #eee; }
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 16px;
+}
