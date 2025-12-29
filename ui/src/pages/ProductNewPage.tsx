@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { apiPost } from '../lib/api'
 import type { ProductDto } from '../lib/api'
 import { useNavigate } from 'react-router-dom'
-import { toMinorUnits } from '../lib/money'
+import { useToast } from '../components/ToastProvider'
 
 type ProductCreateForm = {
     sku: string
     name: string
-    price: string        // eurodes (nt "1.49")
+    priceCents: string
     currencyCode: string
 }
 
@@ -15,10 +15,12 @@ const CURRENCIES = ['EUR', 'USD', 'GBP'] as const
 
 export default function ProductNewPage() {
     const nav = useNavigate()
+    const { show } = useToast()
+
     const [form, setForm] = useState<ProductCreateForm>({
         sku: '',
         name: '',
-        price: '',
+        priceCents: '',
         currencyCode: 'EUR',
     })
     const [saving, setSaving] = useState(false)
@@ -32,12 +34,11 @@ export default function ProductNewPage() {
         e.preventDefault()
         setError(null)
 
-        let cents: number
-        try {
-            cents = toMinorUnits(form.price, form.currencyCode)
-            if (cents < 0) throw new Error('Price must be non-negative')
-        } catch (err: any) {
-            setError(err?.message || 'Invalid price')
+        const cents = parseInt(form.priceCents, 10)
+        if (Number.isNaN(cents) || cents < 0) {
+            const msg = 'Price must be a non-negative integer (cents).'
+            setError(msg)
+            show(msg, 'error')
             return
         }
 
@@ -46,13 +47,16 @@ export default function ProductNewPage() {
             const payload = {
                 sku: form.sku.trim(),
                 name: form.name.trim(),
-                priceCents: cents,                 // BE ootab sentides
+                priceCents: cents,
                 currencyCode: form.currencyCode.toUpperCase(),
             }
             await apiPost<typeof payload, ProductDto>('/products', payload)
+            show('Product created', 'success')
             nav('/products')
         } catch (err: any) {
-            setError(err.message ?? 'Save failed')
+            const msg = err?.message ?? 'Save failed'
+            setError(msg)
+            show(msg, 'error')
         } finally {
             setSaving(false)
         }
@@ -60,12 +64,7 @@ export default function ProductNewPage() {
 
     return (
         <div className="container">
-            <div className="page-header">
-                <button type="button" className="btn" onClick={() => nav(-1)}>← Back</button>
-                <h1 style={{ margin: 0 }}>Add product</h1>
-                <div />
-            </div>
-
+            <h1>Add product</h1>
             <form onSubmit={onSubmit} style={{ maxWidth: 520 }}>
                 <label htmlFor="sku">SKU</label>
                 <input
@@ -86,13 +85,15 @@ export default function ProductNewPage() {
                     required
                 />
 
-                <label htmlFor="price">Price</label>
+                <label htmlFor="price">Price (cents)</label>
                 <input
                     id="price"
-                    inputMode="decimal"
-                    placeholder="e.g. 1.49"
-                    value={form.price}
-                    onChange={e => update('price', e.target.value)}
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    placeholder="e.g. 149"
+                    value={form.priceCents}
+                    onChange={e => update('priceCents', e.target.value)}
                     required
                 />
 

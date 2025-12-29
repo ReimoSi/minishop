@@ -5,6 +5,7 @@ import type { ProductDto } from '../lib/api'
 import { useProducts } from '../hooks/useProducts'
 import { useSearchParams, Link } from 'react-router-dom'
 import { formatMoneyFromMinor } from '../lib/money'
+import { useToast } from '../components/ToastProvider'
 
 export default function ProductsPage() {
     const [sp, setSp] = useSearchParams()
@@ -29,13 +30,36 @@ export default function ProductsPage() {
     }, [q, page, size, sortField, sortDir])
 
     const sortParam = `${sortField},${sortDir}`
+    const params = { q, page, size, sort: sortParam }
 
     const queryClient = useQueryClient()
-    const { data, isLoading, isError, error } = useProducts({ q, page, size, sort: sortParam })
+    const { show } = useToast()
+    const { data, isLoading, isError, error } = useProducts(params)
 
     const delMutation = useMutation({
-        mutationFn: (id: number) => apiDelete(`/products/${id}`),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products'] }),
+        mutationFn: async (id: number) => {
+            await apiDelete(`/products/${id}`)
+            return id
+        },
+        onMutate: async (id: number) => {
+            await queryClient.cancelQueries({ queryKey: ['products', params] })
+            const prev = queryClient.getQueryData<any>(['products', params])
+            if (prev?.content) {
+                const next = { ...prev, content: prev.content.filter((p: any) => p.id !== id) }
+                queryClient.setQueryData(['products', params], next)
+            }
+            return { prev }
+        },
+        onError: (err, _id, ctx) => {
+            if (ctx?.prev) queryClient.setQueryData(['products', params], ctx.prev)
+            show((err as any)?.message ?? 'Delete failed', 'error')
+        },
+        onSuccess: () => {
+            show('Product deleted', 'success')
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['products'] })
+        },
     })
 
     const rows: ProductDto[] = useMemo(() => data?.content ?? [], [data])
@@ -116,9 +140,7 @@ export default function ProductsPage() {
                             <td>{formatMoneyFromMinor(p.priceCents, p.currencyCode, 'et-EE')}</td>
                             <td>{p.currencyCode}</td>
                             <td>
-                                <Link className="btn" to={`/products/${p.id}/edit`} style={{ marginRight: 6 }}>
-                                    Edit
-                                </Link>
+                                <Link className="btn" to={`/products/${p.id}/edit`} style={{ marginRight: 6 }}>Edit</Link>
                                 <button
                                     onClick={() => {
                                         if (p.id && confirm(`Delete product #${p.id}?`)) {
