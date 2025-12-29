@@ -3,20 +3,17 @@ import { useQueryClient, useMutation } from '@tanstack/react-query'
 import { apiDelete } from '../lib/api'
 import type { ProductDto } from '../lib/api'
 import { useProducts } from '../hooks/useProducts'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import { formatMoneyFromMinor } from '../lib/money'
 
 export default function ProductsPage() {
     const [sp, setSp] = useSearchParams()
-
-    // loe algväärtused URL-ist
     const [q, setQ] = useState(sp.get('q') ?? '')
     const [page, setPage] = useState<number>(Number(sp.get('page') ?? 0))
     const [size, setSize] = useState<number>(Number(sp.get('size') ?? 10))
     const [sortField, setSortField] = useState(sp.get('sortField') ?? 'id')
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>((sp.get('sortDir') as 'asc' | 'desc') ?? 'asc')
 
-    // hoia URL sünkroonis (debounce q’d minimaalselt)
     useEffect(() => {
         const t = setTimeout(() => {
             const next = new URLSearchParams(sp)
@@ -28,6 +25,7 @@ export default function ProductsPage() {
             setSp(next, { replace: true })
         }, 150)
         return () => clearTimeout(t)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [q, page, size, sortField, sortDir])
 
     const sortParam = `${sortField},${sortDir}`
@@ -37,9 +35,7 @@ export default function ProductsPage() {
 
     const delMutation = useMutation({
         mutationFn: (id: number) => apiDelete(`/products/${id}`),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['products'] })
-        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products'] }),
     })
 
     const rows: ProductDto[] = useMemo(() => data?.content ?? [], [data])
@@ -48,61 +44,53 @@ export default function ProductsPage() {
     if (isError) return <p style={{ padding: 24, color: 'crimson' }}>Error: {(error as Error)?.message ?? 'unknown'}</p>
 
     return (
-        <div style={{ padding: 24 }}>
+        <div className="container">
             <h1>Products</h1>
 
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
-                <input
-                    placeholder="Search…"
-                    value={q}
-                    onChange={(e) => {
-                        setQ(e.target.value)
-                        setPage(0)
-                    }}
-                />
+            <div className="toolbar">
+                <div className="filters">
+                    <input
+                        placeholder="Search…"
+                        value={q}
+                        onChange={(e) => { setQ(e.target.value); setPage(0) }}
+                    />
 
-                <label>
-                    Sort:{' '}
-                    <select
-                        value={sortField}
-                        onChange={(e) => {
-                            setSortField(e.target.value)
-                            setPage(0)
-                        }}
+                    <label>
+                        Sort:{' '}
+                        <select
+                            value={sortField}
+                            onChange={(e) => { setSortField(e.target.value); setPage(0) }}
+                        >
+                            <option value="price">price</option>
+                            <option value="name">name</option>
+                            <option value="sku">sku</option>
+                            <option value="updated">updated</option>
+                            <option value="created">created</option>
+                            <option value="id">id</option>
+                        </select>
+                    </label>
+
+                    <button
+                        onClick={() => { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); setPage(0) }}
+                        title="Toggle direction"
                     >
-                        <option value="price">price</option>
-                        <option value="name">name</option>
-                        <option value="sku">sku</option>
-                        <option value="updated">updated</option>
-                        <option value="created">created</option>
-                        <option value="id">id</option>
-                    </select>
-                </label>
+                        {sortDir === 'asc' ? '↑ asc' : '↓ desc'}
+                    </button>
 
-                <button
-                    onClick={() => {
-                        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-                        setPage(0)
-                    }}
-                    title="Toggle direction"
-                >
-                    {sortDir === 'asc' ? '↑ asc' : '↓ desc'}
-                </button>
+                    <label>
+                        Page size:{' '}
+                        <select
+                            value={size}
+                            onChange={(e) => { setSize(Number(e.target.value)); setPage(0) }}
+                        >
+                            {[5, 10, 20, 50].map((n) => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                    </label>
+                </div>
 
-                <label>
-                    Page size:{' '}
-                    <select
-                        value={size}
-                        onChange={(e) => {
-                            setSize(Number(e.target.value))
-                            setPage(0)
-                        }}
-                    >
-                        {[5, 10, 20, 50].map((n) => (
-                            <option key={n} value={n}>{n}</option>
-                        ))}
-                    </select>
-                </label>
+                <div className="actions">
+                    <Link className="btn" to="/products/new">Add product</Link>
+                </div>
             </div>
 
             {!rows.length ? (
@@ -148,21 +136,9 @@ export default function ProductsPage() {
             <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
                 <button onClick={() => setPage(0)} disabled={data?.first}>⏮ First</button>
                 <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={data?.first}>◀ Prev</button>
-                <span>
-          Page {(data?.number ?? 0) + 1} / {data?.totalPages ?? 1}
-        </span>
-                <button
-                    onClick={() => setPage((p) => Math.min((data?.totalPages ?? 1) - 1, p + 1))}
-                    disabled={data?.last}
-                >
-                    Next ▶
-                </button>
-                <button
-                    onClick={() => data && setPage(data.totalPages - 1)}
-                    disabled={data?.last}
-                >
-                    Last ⏭
-                </button>
+                <span>Page {(data?.number ?? 0) + 1} / {data?.totalPages ?? 1}</span>
+                <button onClick={() => setPage((p) => Math.min((data?.totalPages ?? 1) - 1, p + 1))} disabled={data?.last}>Next ▶</button>
+                <button onClick={() => data && setPage(data.totalPages - 1)} disabled={data?.last}>Last ⏭</button>
             </div>
         </div>
     )
