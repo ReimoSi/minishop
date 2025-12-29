@@ -1,6 +1,4 @@
-
 package com.example.minishop.web;
-
 
 import com.example.minishop.api.ProductDto;
 import com.example.minishop.service.ProductService;
@@ -11,10 +9,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,7 +23,7 @@ import java.util.List;
 
 @Tag(name = "Products", description = "Product CRUD endpoints")
 @RestController
-@RequestMapping("/api/products")
+@RequestMapping(value = "/api/products", produces = MediaType.APPLICATION_JSON_VALUE)
 public class ProductController {
 
     private final ProductService service;
@@ -59,10 +59,8 @@ public class ProductController {
         return service.search(q, safe);
     }
 
-    // VALIKULINE: ainult vajadusel (nt admin UI jaoks). NB! Eraldi tee, et vältida mappingu konflikti.
     @GetMapping("/all")
     @Operation(summary = "List all products (NO paging)", description = "ADMIN/use only — võib olla suur.")
-    @ApiResponses({ @ApiResponse(responseCode = "200", description = "OK") })
     public List<ProductDto> listAll() {
         return service.findAll();
     }
@@ -73,11 +71,11 @@ public class ProductController {
             @ApiResponse(responseCode = "200", description = "OK"),
             @ApiResponse(responseCode = "404", description = "Product not found")
     })
-    public ProductDto get(@PathVariable Long id) {
+    public ProductDto get(@PathVariable @Min(1) Long id) {
         return service.get(id);
     }
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Create product", description = "Creates a new product")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Created"),
@@ -91,7 +89,7 @@ public class ProductController {
                 .body(created);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Update product", description = "Updates an existing product")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "OK"),
@@ -99,7 +97,7 @@ public class ProductController {
             @ApiResponse(responseCode = "404", description = "Product not found"),
             @ApiResponse(responseCode = "409", description = "SKU already exists")
     })
-    public ProductDto update(@PathVariable Long id, @Valid @RequestBody ProductDto dto) {
+    public ProductDto update(@PathVariable @Min(1) Long id, @Valid @RequestBody ProductDto dto) {
         return service.update(id, dto);
     }
 
@@ -110,7 +108,7 @@ public class ProductController {
             @ApiResponse(responseCode = "404", description = "Product not found"),
             @ApiResponse(responseCode = "409", description = "Product is referenced and cannot be deleted")
     })
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable @Min(1) Long id) {
         service.delete(id);
         return ResponseEntity.noContent().build();
     }

@@ -116,6 +116,9 @@ export default function ProductsPage() {
                             <td>{formatMoneyFromMinor(p.priceCents, p.currencyCode, 'et-EE')}</td>
                             <td>{p.currencyCode}</td>
                             <td>
+                                <Link className="btn" to={`/products/${p.id}/edit`} style={{ marginRight: 6 }}>
+                                    Edit
+                                </Link>
                                 <button
                                     onClick={() => {
                                         if (p.id && confirm(`Delete product #${p.id}?`)) {
