@@ -7,13 +7,19 @@ import { useSearchParams, Link } from 'react-router-dom'
 import { formatMoneyFromMinor } from '../lib/money'
 import { useToast } from '../components/ToastProvider'
 
+type Dir = 'asc' | 'desc'
+
+function SortArrow({ dir }: { dir: Dir }) {
+    return <span style={{ marginLeft: 4, opacity: 0.8 }}>{dir === 'asc' ? '↑' : '↓'}</span>
+}
+
 export default function ProductsPage() {
     const [sp, setSp] = useSearchParams()
     const [q, setQ] = useState(sp.get('q') ?? '')
     const [page, setPage] = useState<number>(Number(sp.get('page') ?? 0))
     const [size, setSize] = useState<number>(Number(sp.get('size') ?? 10))
     const [sortField, setSortField] = useState(sp.get('sortField') ?? 'id')
-    const [sortDir, setSortDir] = useState<'asc' | 'desc'>((sp.get('sortDir') as 'asc' | 'desc') ?? 'asc')
+    const [sortDir, setSortDir] = useState<Dir>((sp.get('sortDir') as Dir) ?? 'asc')
 
     useEffect(() => {
         const t = setTimeout(() => {
@@ -36,6 +42,7 @@ export default function ProductsPage() {
     const { show } = useToast()
     const { data, isLoading, isError, error } = useProducts(params)
 
+    // Optimistlik kustutamine
     const delMutation = useMutation({
         mutationFn: async (id: number) => {
             await apiDelete(`/products/${id}`)
@@ -64,6 +71,41 @@ export default function ProductsPage() {
 
     const rows: ProductDto[] = useMemo(() => data?.content ?? [], [data])
 
+    function toggleHeaderSort(field: string) {
+        if (sortField === field) {
+            setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+        } else {
+            // uue veeru default – enamikul ASC; hinnal võib vabalt ka DESC eelistada, aga jätame ASC
+            setSortField(field)
+            setSortDir('asc')
+        }
+        setPage(0)
+    }
+
+    function HeaderBtn({ field, children }: { field: string; children: React.ReactNode }) {
+        const active = sortField === field
+        return (
+            <button
+                type="button"
+                onClick={() => toggleHeaderSort(field)}
+                style={{
+                    background: 'transparent',
+                    border: 'none',
+                    padding: 0,
+                    font: 'inherit',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center'
+                }}
+                aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                title={`Sort by ${field}`}
+            >
+                {children}
+                {active && <SortArrow dir={sortDir} />}
+            </button>
+        )
+    }
+
     if (isLoading) return <p style={{ padding: 24 }}>Loading…</p>
     if (isError) return <p style={{ padding: 24, color: 'crimson' }}>Error: {(error as Error)?.message ?? 'unknown'}</p>
 
@@ -79,6 +121,7 @@ export default function ProductsPage() {
                         onChange={(e) => { setQ(e.target.value); setPage(0) }}
                     />
 
+                    {/* Võid selle rippmenüü varsti eemaldada, kui päise-sort meeldib */}
                     <label>
                         Sort:{' '}
                         <select
@@ -123,11 +166,11 @@ export default function ProductsPage() {
                 <table>
                     <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>SKU</th>
-                        <th>Name</th>
-                        <th>Price</th>
-                        <th>Currency</th>
+                        <th><HeaderBtn field="id">ID</HeaderBtn></th>
+                        <th><HeaderBtn field="sku">SKU</HeaderBtn></th>
+                        <th><HeaderBtn field="name">Name</HeaderBtn></th>
+                        <th><HeaderBtn field="price">Price</HeaderBtn></th>
+                        <th><HeaderBtn field="currency">Currency</HeaderBtn></th>
                         <th></th>
                     </tr>
                     </thead>
