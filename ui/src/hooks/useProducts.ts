@@ -3,24 +3,25 @@ import { apiGetPage } from '../lib/api'
 import type { PageResp, ProductDto } from '../lib/api'
 
 export type ProductQuery = {
-    q: string
-    page: number
-    size: number
-    sort: string // nt "price,desc"
+    q?: string
+    page?: number
+    size?: number
+    /** mitmetasemeline sort: iga element on "field,dir" (nt "price,desc") */
+    sorts?: string[]
 }
 
 export function useProducts(params: ProductQuery) {
-    const search = new URLSearchParams({
-        ...(params.q ? { q: params.q } : {}),
-        page: String(params.page ?? 0),
-        size: String(params.size ?? 10),
-        sort: params.sort ?? 'id,asc',
-    }).toString()
+    const key = ['products', params] as const
 
-    return useQuery({
-        queryKey: ['products', params],
-        // NB! backendis on GET /api/products (mitte /products/page)
-        queryFn: () => apiGetPage<ProductDto>(`/products?${search}`),
+    return useQuery<PageResp<ProductDto>, Error>({
+        queryKey: key,
+        queryFn: (): Promise<PageResp<ProductDto>> =>
+            apiGetPage<ProductDto>('/products', {
+                q: params.q ?? '',
+                page: params.page ?? 0,
+                size: params.size ?? 10,
+                sorts: params.sorts ?? ['id,asc'],
+            }),
         placeholderData: keepPreviousData,
     })
 }

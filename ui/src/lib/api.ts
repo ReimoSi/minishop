@@ -6,7 +6,7 @@ export const api = axios.create({
     headers: { 'Content-Type': 'application/json' },
 })
 
-/** Spring Page<> -> meie UI PageResp kuju */
+/** Spring Page<> vastus (normaliseeritud väljad). */
 export type PageResp<T> = {
     content: T[]
     totalElements: number
@@ -32,64 +32,92 @@ export async function apiGet<T>(url: string): Promise<T> {
     return data
 }
 
-/** GET helper, mis mapib Spring Page<> kuju PageRespiks
- *  Toetab mõlemat:
- *   - Spring default (content, totalPages, number, size, first, last, ...)
- *   - sinu varasem kuju (content + page{ size, number, totalElements, totalPages })
+/**
+ * Lehega GET, toetab q/page/size ja MITUT sort’i.
+ * sorts = ["price,desc","name,asc"]  ->  ?sort=price,desc&sort=name,asc
  */
-export async function apiGetPage<T>(url: string): Promise<PageResp<T>> {
+export async function apiGetPage<T>(
+    path: string,
+    params: { q?: string; page?: number; size?: number; sorts?: string[] }
+): Promise<PageResp<T>> {
+    const sp = new URLSearchParams()
+    if (params.q) sp.set('q', params.q)
+    sp.set('page', String(params.page ?? 0))
+    sp.set('size', String(params.size ?? 10))
+    ;(params.sorts ?? ['id,asc']).forEach(s => sp.append('sort', s))
+
+    const url = `${path}?${sp.toString()}`
+    // Spring Data Page’i erinevad kujud – normaliseerime
     const { data } = await api.get<any>(url)
 
-    const spring = data ?? {}
-    const pageBlock = spring.page ?? spring
+    // Kui backend juba tagastab {content, page:{...}} (sinu varasem JSON),
+    // normaliseerime üheks PageResp vormiks:
+    if (data && data.content && data.page) {
+        const p = data.page
+        return {
+            content: data.content as T[],
+            totalElements: p.totalElements,
+            totalPages: p.totalPages,
+            number: p.number,
+            size: p.size,
+            first: p.number === 0,
+            last: p.number + 1 >= p.totalPages,
+        }
+    }
 
-    const content: T[] = spring.content ?? []
-    const size: number = pageBlock.size ?? spring.pageable?.pageSize ?? 0
-    const number: number = pageBlock.number ?? spring.number ?? 0
-    const totalElements: number = pageBlock.totalElements ?? spring.totalElements ?? content.length
-    const totalPages: number = pageBlock.totalPages ?? spring.totalPages ?? 1
-    const first: boolean = typeof spring.first === 'boolean' ? spring.first : number === 0
-    const last: boolean =
-        typeof spring.last === 'boolean' ? spring.last : (totalPages ? number + 1 >= totalPages : true)
+    // Kui backend kasutab Spring default Page JSON kuju (number/size/totalPages/totalElements olemas),
+    // tagasta otse (lisades first/last kui vaja)
+    if (data && Array.isArray(data.content)) {
+        return {
+            content: data.content as T[],
+            totalElements: data.totalElements ?? 0,
+            totalPages: data.totalPages ?? 1,
+            number: data.number ?? 0,
+            size: data.size ?? (data.content?.length ?? 0),
+            first: data.first ?? (data.number === 0),
+            last: data.last ?? (data.number + 1 >= (data.totalPages ?? 1)),
+        }
+    }
 
-    return { content, totalElements, totalPages, number, size, first, last }
+    // Fallback (ei tohiks siia jõuda)
+    return {
+        content: [],
+        totalElements: 0,
+        totalPages: 0,
+        number: 0,
+        size: params.size ?? 10,
+        first: true,
+        last: true,
+    }
 }
 
-/** POST helper (tagastab backend ApiError.message kui olemas) */
+/** POST helper (tagastab backend error.message, kui olemas) */
 export async function apiPost<TReq, TRes>(url: string, body: TReq): Promise<TRes> {
     try {
         const { data } = await api.post<TRes>(url, body)
         return data
     } catch (err: any) {
         if (axios.isAxiosError(err) && err.response) {
-            const msg = (err.response.data && (err.response.data as any).message) || err.message || 'Request failed'
+            const msg =
+                (err.response.data && (err.response.data as any).message) ||
+                err.message ||
+                'Request failed'
             throw new Error(msg)
         }
         throw err
     }
 }
 
-/** PUT helper */
-export async function apiPut<TReq, TRes>(url: string, body: TReq): Promise<TRes> {
-    try {
-        const { data } = await api.put<TRes>(url, body)
-        return data
-    } catch (err: any) {
-        if (axios.isAxiosError(err) && err.response) {
-            const msg = (err.response.data && (err.response.data as any).message) || err.message || 'Request failed'
-            throw new Error(msg)
-        }
-        throw err
-    }
-}
-
-/** DELETE helper */
+/** DELETE helper (sama veateadete loogika) */
 export async function apiDelete(url: string): Promise<void> {
     try {
         await api.delete(url)
     } catch (err: any) {
         if (axios.isAxiosError(err) && err.response) {
-            const msg = (err.response.data && (err.response.data as any).message) || err.message || 'Request failed'
+            const msg =
+                (err.response.data && (err.response.data as any).message) ||
+                err.message ||
+                'Request failed'
             throw new Error(msg)
         }
         throw err

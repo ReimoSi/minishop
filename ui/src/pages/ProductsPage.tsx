@@ -1,17 +1,34 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, MouseEvent } from 'react'
 import { useQueryClient, useMutation } from '@tanstack/react-query'
 import { apiDelete } from '../lib/api'
 import type { ProductDto } from '../lib/api'
 import { useProducts } from '../hooks/useProducts'
 import { useSearchParams, Link } from 'react-router-dom'
 import { formatMoneyFromMinor } from '../lib/money'
-import { useToast } from '../components/ToastProvider'
 import ColumnPicker, { DEFAULT_PRODUCT_COLUMNS, ProductColumns } from '../components/ColumnPicker'
 
 type Dir = 'asc' | 'desc'
+type SortLevel = { field: string; dir: Dir }
 
 function SortArrow({ dir }: { dir: Dir }) {
     return <span style={{ marginLeft: 4, opacity: 0.8 }}>{dir === 'asc' ? '↑' : '↓'}</span>
+}
+
+// 'id,asc|name,desc'  <->  [{field:'id',dir:'asc'},{field:'name',dir:'desc'}]
+function parseSortParam(raw: string | null | undefined): SortLevel[] {
+    if (!raw) return [{ field: 'id', dir: 'asc' }]
+    const parts = raw.split('|').map(s => s.trim()).filter(Boolean)
+    const levels: SortLevel[] = []
+    for (const p of parts) {
+        const [f, d] = p.split(',')
+        if (!f) continue
+        const dir = (d === 'desc' ? 'desc' : 'asc') as Dir
+        levels.push({ field: f, dir })
+    }
+    return levels.length ? levels : [{ field: 'id', dir: 'asc' }]
+}
+function stringifySort(levels: SortLevel[]): string {
+    return levels.map(l => `${l.field},${l.dir}`).join('|')
 }
 
 const COLS_STORAGE_KEY = 'products.cols.v1'
@@ -21,42 +38,38 @@ export default function ProductsPage() {
     const [q, setQ] = useState(sp.get('q') ?? '')
     const [page, setPage] = useState<number>(Number(sp.get('page') ?? 0))
     const [size, setSize] = useState<number>(Number(sp.get('size') ?? 10))
-    const [sortField, setSortField] = useState(sp.get('sortField') ?? 'id')
-    const [sortDir, setSortDir] = useState<Dir>((sp.get('sortDir') as Dir) ?? 'asc')
+    const [sorts, setSorts] = useState<SortLevel[]>(() => parseSortParam(sp.get('sort')))
 
     // Veergude nähtavus (localStorage)
     const [cols, setCols] = useState<ProductColumns>(() => {
         try {
             const raw = localStorage.getItem(COLS_STORAGE_KEY)
             if (raw) return { ...DEFAULT_PRODUCT_COLUMNS, ...JSON.parse(raw) }
-        } catch (_) {}
+        } catch {}
         return DEFAULT_PRODUCT_COLUMNS
     })
     useEffect(() => {
-        try {
-            localStorage.setItem(COLS_STORAGE_KEY, JSON.stringify(cols))
-        } catch (_) {}
+        try { localStorage.setItem(COLS_STORAGE_KEY, JSON.stringify(cols)) } catch {}
     }, [cols])
 
+    // URL sünk
     useEffect(() => {
         const t = setTimeout(() => {
             const next = new URLSearchParams(sp)
             if (q) next.set('q', q); else next.delete('q')
             next.set('page', String(page))
             next.set('size', String(size))
-            next.set('sortField', sortField)
-            next.set('sortDir', sortDir)
+            next.set('sort', stringifySort(sorts))
             setSp(next, { replace: true })
         }, 150)
         return () => clearTimeout(t)
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [q, page, size, sortField, sortDir])
+    }, [q, page, size, sorts])
 
-    const sortParam = `${sortField},${sortDir}`
-    const params = { q, page, size, sort: sortParam }
+    const sortParams = sorts.map(s => `${s.field},${s.dir}`)
+    const params = { q, page, size, sorts: sortParams }
 
     const queryClient = useQueryClient()
-    const { show } = useToast()
     const { data, isLoading, isError, error } = useProducts(params)
 
     // Optimistlik kustutamine
@@ -74,12 +87,10 @@ export default function ProductsPage() {
             }
             return { prev }
         },
-        onError: (err, _id, ctx) => {
+        onError: (_err, _id, ctx) => {
             if (ctx?.prev) queryClient.setQueryData(['products', params], ctx.prev)
-            show((err as any)?.message ?? 'Delete failed', 'error')
-        },
-        onSuccess: () => {
-            show('Product deleted', 'success')
+            // siia võid hiljem toasti lisada
+            console.error('Delete failed')
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
@@ -88,22 +99,34 @@ export default function ProductsPage() {
 
     const rows: ProductDto[] = useMemo(() => data?.content ?? [], [data])
 
-    function toggleHeaderSort(field: string) {
-        if (sortField === field) {
-            setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
-        } else {
-            setSortField(field)
-            setSortDir('asc')
-        }
+    function headerClick(e: MouseEvent, field: string) {
         setPage(0)
+        const isShift = e.shiftKey
+        setSorts(prev => {
+            // Kui ilma shiftita: ainult üks tase, toggelda suunda kui sama veerg
+            if (!isShift) {
+                if (prev[0]?.field === field) {
+                    const dir = prev[0].dir === 'asc' ? 'desc' : 'asc'
+                    return [{ field, dir }]
+                }
+                return [{ field, dir: 'asc' }]
+            }
+            // Shift+click: lisa/toggelda olemasolevat taset
+            const idx = prev.findIndex(s => s.field === field)
+            if (idx === -1) return [...prev, { field, dir: 'asc' }]
+            // kui on olemas, toggelda selle suunda (järjekorda ei muuda)
+            const next = prev.slice()
+            next[idx] = { field, dir: next[idx].dir === 'asc' ? 'desc' : 'asc' }
+            return next
+        })
     }
 
-    function HeaderBtn({ field, children }: { field: string; children: React.ReactNode }) {
-        const active = sortField === field
+    function HeaderBtn({ field, title }: { field: string; title: string }) {
+        const active = sorts[0]?.field === field
         return (
             <button
                 type="button"
-                onClick={() => toggleHeaderSort(field)}
+                onClick={(e) => headerClick(e, field)}
                 style={{
                     background: 'transparent',
                     border: 'none',
@@ -113,11 +136,12 @@ export default function ProductsPage() {
                     display: 'inline-flex',
                     alignItems: 'center'
                 }}
-                aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                title={`Sort by ${field}`}
+                title={`${title} (click=primary sort, Shift+click=add/toggle secondary)`}
+                aria-sort={
+                    active ? (sorts[0].dir === 'asc' ? 'ascending' : 'descending') : 'none'
+                }
             >
-                {children}
-                {active && <SortArrow dir={sortDir} />}
+                {title}{active && <SortArrow dir={sorts[0].dir} />}
             </button>
         )
     }
@@ -137,30 +161,12 @@ export default function ProductsPage() {
                         onChange={(e) => { setQ(e.target.value); setPage(0) }}
                     />
 
-                    {/* (soovi korral võid selle rippmenüü hiljem eemaldada) */}
-                    <label>
-                        Sort:{' '}
-                        <select
-                            value={sortField}
-                            onChange={(e) => { setSortField(e.target.value); setPage(0) }}
-                        >
-                            <option value="price">price</option>
-                            <option value="name">name</option>
-                            <option value="sku">sku</option>
-                            <option value="updated">updated</option>
-                            <option value="created">created</option>
-                            <option value="id">id</option>
-                        </select>
-                    </label>
+                    {/* Väike sortide ülevaade */}
+                    <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.8 }}>
+            Sort: {sorts.map(s => `${s.field} ${s.dir}`).join(', ')}
+          </span>
 
-                    <button
-                        onClick={() => { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); setPage(0) }}
-                        title="Toggle direction"
-                    >
-                        {sortDir === 'asc' ? '↑ asc' : '↓ desc'}
-                    </button>
-
-                    <label>
+                    <label style={{ marginLeft: 12 }}>
                         Page size:{' '}
                         <select
                             value={size}
@@ -183,11 +189,11 @@ export default function ProductsPage() {
                 <table>
                     <thead>
                     <tr>
-                        {cols.id && <th><HeaderBtn field="id">ID</HeaderBtn></th>}
-                        {cols.sku && <th><HeaderBtn field="sku">SKU</HeaderBtn></th>}
-                        {cols.name && <th><HeaderBtn field="name">Name</HeaderBtn></th>}
-                        {cols.price && <th><HeaderBtn field="price">Price</HeaderBtn></th>}
-                        {cols.currency && <th><HeaderBtn field="currency">Currency</HeaderBtn></th>}
+                        {cols.id && <th><HeaderBtn field="id" title="ID" /></th>}
+                        {cols.sku && <th><HeaderBtn field="sku" title="SKU" /></th>}
+                        {cols.name && <th><HeaderBtn field="name" title="Name" /></th>}
+                        {cols.price && <th><HeaderBtn field="price" title="Price" /></th>}
+                        {cols.currency && <th><HeaderBtn field="currency" title="Currency" /></th>}
                         <th></th>
                     </tr>
                     </thead>
