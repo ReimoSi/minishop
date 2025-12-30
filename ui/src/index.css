@@ -67,3 +67,23 @@ th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; }
   gap: 12px;
   margin: 8px 0 16px;
 }
+
+/* Column picker */
+.cols-menu { position: relative; }
+.cols-menu > summary { cursor: pointer; list-style: none; }
+.cols-menu > summary::-webkit-details-marker { display: none; }
+.cols-menu[open] > .cols-menu-panel,
+.cols-menu > .cols-menu-panel {
+  position: absolute;
+  right: 0;
+  z-index: 10;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(0,0,0,.06);
+  display: grid;
+  gap: 6px;
+}
+.cols-menu label { white-space: nowrap; font-size: 0.95rem; }

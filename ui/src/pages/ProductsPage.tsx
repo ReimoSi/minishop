@@ -6,12 +6,15 @@ import { useProducts } from '../hooks/useProducts'
 import { useSearchParams, Link } from 'react-router-dom'
 import { formatMoneyFromMinor } from '../lib/money'
 import { useToast } from '../components/ToastProvider'
+import ColumnPicker, { DEFAULT_PRODUCT_COLUMNS, ProductColumns } from '../components/ColumnPicker'
 
 type Dir = 'asc' | 'desc'
 
 function SortArrow({ dir }: { dir: Dir }) {
     return <span style={{ marginLeft: 4, opacity: 0.8 }}>{dir === 'asc' ? '↑' : '↓'}</span>
 }
+
+const COLS_STORAGE_KEY = 'products.cols.v1'
 
 export default function ProductsPage() {
     const [sp, setSp] = useSearchParams()
@@ -20,6 +23,20 @@ export default function ProductsPage() {
     const [size, setSize] = useState<number>(Number(sp.get('size') ?? 10))
     const [sortField, setSortField] = useState(sp.get('sortField') ?? 'id')
     const [sortDir, setSortDir] = useState<Dir>((sp.get('sortDir') as Dir) ?? 'asc')
+
+    // Veergude nähtavus (localStorage)
+    const [cols, setCols] = useState<ProductColumns>(() => {
+        try {
+            const raw = localStorage.getItem(COLS_STORAGE_KEY)
+            if (raw) return { ...DEFAULT_PRODUCT_COLUMNS, ...JSON.parse(raw) }
+        } catch (_) {}
+        return DEFAULT_PRODUCT_COLUMNS
+    })
+    useEffect(() => {
+        try {
+            localStorage.setItem(COLS_STORAGE_KEY, JSON.stringify(cols))
+        } catch (_) {}
+    }, [cols])
 
     useEffect(() => {
         const t = setTimeout(() => {
@@ -75,7 +92,6 @@ export default function ProductsPage() {
         if (sortField === field) {
             setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
         } else {
-            // uue veeru default – enamikul ASC; hinnal võib vabalt ka DESC eelistada, aga jätame ASC
             setSortField(field)
             setSortDir('asc')
         }
@@ -121,7 +137,7 @@ export default function ProductsPage() {
                         onChange={(e) => { setQ(e.target.value); setPage(0) }}
                     />
 
-                    {/* Võid selle rippmenüü varsti eemaldada, kui päise-sort meeldib */}
+                    {/* (soovi korral võid selle rippmenüü hiljem eemaldada) */}
                     <label>
                         Sort:{' '}
                         <select
@@ -155,7 +171,8 @@ export default function ProductsPage() {
                     </label>
                 </div>
 
-                <div className="actions">
+                <div className="actions" style={{ display: 'flex', gap: 8 }}>
+                    <ColumnPicker value={cols} onChange={setCols} />
                     <Link className="btn" to="/products/new">Add product</Link>
                 </div>
             </div>
@@ -166,22 +183,22 @@ export default function ProductsPage() {
                 <table>
                     <thead>
                     <tr>
-                        <th><HeaderBtn field="id">ID</HeaderBtn></th>
-                        <th><HeaderBtn field="sku">SKU</HeaderBtn></th>
-                        <th><HeaderBtn field="name">Name</HeaderBtn></th>
-                        <th><HeaderBtn field="price">Price</HeaderBtn></th>
-                        <th><HeaderBtn field="currency">Currency</HeaderBtn></th>
+                        {cols.id && <th><HeaderBtn field="id">ID</HeaderBtn></th>}
+                        {cols.sku && <th><HeaderBtn field="sku">SKU</HeaderBtn></th>}
+                        {cols.name && <th><HeaderBtn field="name">Name</HeaderBtn></th>}
+                        {cols.price && <th><HeaderBtn field="price">Price</HeaderBtn></th>}
+                        {cols.currency && <th><HeaderBtn field="currency">Currency</HeaderBtn></th>}
                         <th></th>
                     </tr>
                     </thead>
                     <tbody>
                     {rows.map((p) => (
                         <tr key={p.id}>
-                            <td>{p.id}</td>
-                            <td>{p.sku}</td>
-                            <td>{p.name}</td>
-                            <td>{formatMoneyFromMinor(p.priceCents, p.currencyCode, 'et-EE')}</td>
-                            <td>{p.currencyCode}</td>
+                            {cols.id && <td>{p.id}</td>}
+                            {cols.sku && <td>{p.sku}</td>}
+                            {cols.name && <td>{p.name}</td>}
+                            {cols.price && <td>{formatMoneyFromMinor(p.priceCents, p.currencyCode, 'et-EE')}</td>}
+                            {cols.currency && <td>{p.currencyCode}</td>}
                             <td>
                                 <Link className="btn" to={`/products/${p.id}/edit`} style={{ marginRight: 6 }}>Edit</Link>
                                 <button
